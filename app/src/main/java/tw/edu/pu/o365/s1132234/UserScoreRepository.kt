@@ -1,7 +1,9 @@
 package tw.edu.pu.o365.s1132234
 
 import com.google.firebase.Firebase
+import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.firestore
+import com.google.firebase.firestore.toObject
 import kotlinx.coroutines.tasks.await
 
 class UserScoreRepository {
@@ -19,6 +21,7 @@ class UserScoreRepository {
             "新增資料失敗：${e.message}"
         }
     }
+
 
     suspend fun updateUser(userScore: UserScoreModel): String {
         return try {
@@ -55,6 +58,65 @@ class UserScoreRepository {
             "刪除資料失敗：${e.message}"
         }
     }
+
+
+    suspend fun getUserScoreByName(userScore: UserScoreModel): String {
+        return try {
+            var userCondition = "子青"
+            val querySnapshot = db.collection("UserScore")
+                .whereEqualTo("user", userCondition) // 篩選條件
+                .get().await()
+            if (!querySnapshot.isEmpty) {
+                val document = querySnapshot.documents.first() // 取得第一個符合條件的文件
+                val userScore = document.toObject<UserScoreModel>()
+                "查詢成功！${userScore?.user} 的分數是 ${userScore?.score}"
+            } else {
+                "查詢失敗：找不到使用者 $userCondition 的資料。"
+            }
+        } catch (e: Exception) {
+            // await() 失敗時會拋出例外，在這裡捕捉並處理
+            "查詢資料失敗：${e.message}"
+        }
+    }
+
+    suspend fun orderByScore(): String {
+        return try {
+            var resultMessage = "查詢成功！分數由大到小排序為：\n"
+
+            // 移除 SimpleDateFormat 的設定
+
+            val querySnapshot = db.collection("UserScore")
+                .orderBy("score", Query.Direction.DESCENDING)
+                .limit(3)
+                .get()
+                .await()
+
+            if (querySnapshot.isEmpty) {
+                return "抱歉，資料庫目前無相關資料"
+            }
+
+            querySnapshot.documents.forEachIndexed { index, document ->
+                val userScore = document.toObject<UserScoreModel>()
+
+                userScore?.let {
+                    val rank = index + 1
+
+                    // 直接顯示 it.timestamp，不做任何轉換
+                    // 如果是 null 則顯示 "null" 或您自訂的字串
+                    resultMessage += "第 $rank 名：${it.user} (分數: ${it.score})\n"
+                    resultMessage += "   時間：${it.timestamp}\n"
+                }
+            }
+
+            resultMessage
+
+        } catch (e: Exception) {
+            "查詢資料失敗：${e.message}"
+        }
+    }
+
+
+
 
 
 }
